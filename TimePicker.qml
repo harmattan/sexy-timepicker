@@ -40,6 +40,25 @@ Usage:
         hourDotImage: "image://theme/meegotouch-timepicker-disc-hours-" + orientationSuffix()
         minutesDotImage: "image://theme/meegotouch-timepicker-disc-minutes-" + orientationSuffix()
     }
+
+Usage for getting a number of minutes with no hours (here up to 6 hours worth of minutes):
+
+    TimePicker {
+        id: timePicker
+        anchors.centerIn: parent
+
+        function orientationSuffix() {
+            if (screen.currentOrientation === Screen.Portrait || screen.currentOrientation === Screen.PortraitInverted )
+                return "portrait"
+            else
+                return "landscape"
+        }
+
+        getHours: false
+        minuteRounds: 6
+        backgroundImage: "image://theme/meegotouch-timepicker-light-1-" + orientationSuffix()
+        minutesDotImage: "image://theme/meegotouch-timepicker-disc-minutes-" + orientationSuffix()
+    }
 */
 
 
@@ -49,9 +68,13 @@ Item {
     property int hours: 0
     property int minutes: 0
 
+    property bool getHours: true
+    property int minuteRounds: 3
+
     property alias backgroundImage: bg.source
     property alias hourDotImage: hourDot.source
     property alias minutesDotImage: minuteDot.source
+    property alias overlayImage: overlay.source
 
     property int minuteGradDelta: 6
     property int hourGradDelta: 30
@@ -60,12 +83,12 @@ Item {
     height: bg.sourceSize.height
 
     onHoursChanged: {
-        if (hours == 24)
+        if (hours === 24)
             hours = 0
     }
 
     onMinutesChanged: {
-        if (minutes == 60)
+        if ((getHours && minutes === 60) || minutes === 60 * minuteRounds)
             minutes = 0
     }
 
@@ -78,25 +101,33 @@ Item {
         property int centerY: parent.height / 2
 
         Image {
+            id: overlay
+            anchors.centerIn: parent
+        }
+
+        Image {
             id: hourDot
             anchors.fill: parent
             rotation: timePicker.hours * 30
             smooth: true
+            visible: getHours
         }
 
         Text {
             id: hourText
-            property int hourRadius: parent.width * 0.055
+            property int hourRadiusX: paintedWidth / 2
+            property int hourRadiusY: paintedHeight / 2
             property int hourTrackRadius: parent.width * 0.16
 
-            x: (parent.centerX - hourRadius) + hourTrackRadius
+            x: (parent.centerX - hourRadiusX) + hourTrackRadius
                * Math.cos(timePicker.hours * timePicker.hourGradDelta * (Math.PI / 180) - (Math.PI / 2));
-            y: (parent.centerY - hourRadius) + hourTrackRadius
+            y: (parent.centerY - hourRadiusY) + hourTrackRadius
                * Math.sin(timePicker.hours * timePicker.hourGradDelta * (Math.PI / 180) - (Math.PI / 2));
 
-            font.pixelSize: timePicker.width * 0.1
+            font.pixelSize: timePicker.width * 0.09
 
             text: (timePicker.hours < 10 ? "0" : "") + timePicker.hours
+            visible: getHours
         }
 
         Image {
@@ -108,17 +139,18 @@ Item {
 
         Text {
             id: minuteText
-            property int minuteRadius: parent.width * 0.055
+            property int minuteRadiusX: paintedWidth / 2
+            property int minuteRadiusY: paintedHeight / 2
             property int minuteTrackRadius: parent.width * 0.38
 
-            x: parent.centerX - minuteRadius + minuteTrackRadius
+            x: parent.centerX - minuteRadiusX + minuteTrackRadius
                 * Math.cos(timePicker.minutes * timePicker.minuteGradDelta * (Math.PI / 180) - (Math.PI / 2));
-            y: parent.centerY - minuteRadius + minuteTrackRadius
+            y: parent.centerY - minuteRadiusY + minuteTrackRadius
                 * Math.sin(timePicker.minutes * timePicker.minuteGradDelta * (Math.PI / 180) - (Math.PI / 2));
 
-            font.pixelSize: timePicker.width * 0.1
+            font.pixelSize: timePicker.width * 0.09
             color: "#CCCCCC"
-            text: (timePicker.minutes < 10 ? "0" : "") + timePicker.minutes
+            text: ((timePicker.minutes < 10 && getHours) ? "0" : "") + timePicker.minutes
         }
     }
 
@@ -147,7 +179,7 @@ Item {
             newAlpha = findAlpha(mouseX, mouseY)
 
             if (currentHandler > 0) {
-                timePicker.minutes = getNewTime(timePicker.minutes, newAlpha, timePicker.minuteGradDelta, 1)
+                timePicker.minutes = getNewTime(timePicker.minutes, newAlpha, timePicker.minuteGradDelta, (getHours ? 1 : minuteRounds))
             }
             else
                 timePicker.hours = getNewTime(timePicker.hours, newAlpha, timePicker.hourGradDelta, 2)
@@ -192,7 +224,7 @@ Item {
 
         function chooseHandler(mouseX, mouseY) {
             var radius = Math.sqrt(Math.pow(bg.centerX - mouseX, 2) + Math.pow(bg.centerY - mouseY, 2));
-            if (radius <= bg.width * 0.25)
+            if (radius <= bg.width * 0.25 && getHours)
                 return 0
             else if(radius < bg.width * 0.5)
                 return 1
